@@ -1,38 +1,18 @@
-/*
-    Video: https://www.youtube.com/watch?v=oCMOYS71NIU
-    Based on Neil Kolban example for IDF: https://github.com/nkolban/esp32-snippets/blob/master/cpp_utils/tests/BLE%20Tests/SampleNotify.cpp
-    Ported to Arduino ESP32 by Evandro Copercini
-   Create a BLE server that, once we receive a connection, will send periodic notifications.
-   The service advertises itself as: 6E400001-B5A3-F393-E0A9-E50E24DCCA9E
-   Has a characteristic of: 6E400002-B5A3-F393-E0A9-E50E24DCCA9E - used for receiving data with "WRITE" 
-   Has a characteristic of: 6E400003-B5A3-F393-E0A9-E50E24DCCA9E - used to send data with  "NOTIFY"
-   The design of creating the BLE server is:
-   1. Create a BLE Server
-   2. Create a BLE Service
-   3. Create a BLE Characteristic on the Service
-   4. Create a BLE Descriptor on the characteristic
-   5. Start the service.
-   6. Start advertising.
-   In this example rxValue is the data received (only accessible inside that function).
-   And txValue is the data to be sent, in this example just a byte incremented every second. 
-*/
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+ #include <Arduino.h>
 
-BLECharacteristic * pCharacteristic;
+BLEServer* pServer = NULL;
+BLECharacteristic* pCharacteristic = NULL;
 bool deviceConnected = false;
-float txValue = 0;
-const int readPin = 32; // Use GPIO number. See ESP32 board pinouts
-const int LED = 2; 
-/* Could be different depending on the dev board. I used the DOIT ESP32 dev board.
-//std::string rxValue; // Could also make this a global var to access it in loop()
-// See the following for generating UUIDs: https://www.uuidgenerator.net/
-*/
-#define SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E" // UART service UUID
-#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+bool oldDeviceConnected = false;
+uint8_t value = 0;
+
+//**************
+// HBRIDGE LOGIC
+//**************
 
 int Pwr = 3;
 const int Low = 127;
@@ -83,105 +63,140 @@ class HBridgeMaderController {
 
 HBridgeMaderController motor_controller;
 
-class MyServerCallbacks: public BLEServerCallbacks {
-  void onConnect(BLEServer * pServer) {
-    deviceConnected = true;
-  };
-
-  void onDisconnect(BLEServer * pServer) {
-    deviceConnected = false;
-  }
-};
-
 int serial_state = 53;
 int state = 2;
 
-class MyCallbacks: public BLECharacteristicCallbacks {
+void types(String a) { Serial.println("it's a String"); }
+void types(int a) { Serial.println("it's an int"); }
+void types(char *a) { Serial.println("it's a char*"); }
+void types(float a) { Serial.println("it's a float"); }
+void types(bool a) { Serial.println("it's a bool"); }
 
-  void onWrite(BLECharacteristic * pCharacteristic) {
-    std::string rxValue = pCharacteristic -> getValue();
-
-    if (rxValue.length() > 0) {
-      if (rxValue.length() > 6) {
-
-        serial_state = rxValue[5]; // state is askii!
-        if(serial_state > 53){
-        switch (serial_state) {
-            case 54:  Serial.println("serial_state Low");   Pwr = Low;  break;
-            case 55:  Serial.println("serial_state Med");   Pwr = Med;  break;
-            case 56:  Serial.println("serial_state High");  Pwr = High; break;
-            default:  Serial.println("serial_state High");  Pwr = High;       }
-        switch (serial_state) {
-        case 49:  Serial.println("serial_state Forward");  state = 0;  break;
-        case 50:  Serial.println("serial_state Back");     state = 1;  break;
-        case 51:  Serial.println("serial_state Left");     state = 2;  break;
-        case 52:  Serial.println("serial_state Right");    state = 3;  break;
-        case 53:  Serial.println("serial_state STOPED");   state = 4;  break;
-        default:  state = 4;        }
-        motor_controller.drive(state, Pwr);
+void debugRxValue(std::string rxValue){
+    Serial.println("*********");
+    Serial.println("Received Value: ");
+    for (int i = 0; i < rxValue.length(); i++){
+      Serial.print(rxValue[i]);
+      types(rxValue[i]);
+      Serial.println("-");
+      if (rxValue[i] == 1){
+        Serial.println("current value is 1!");
+      }
+      if (rxValue[i] == 49){
+        Serial.println("current value is 49!");
       }
     }
+    Serial.println();
+    Serial.println("*********");
+}
+
+void processRxValue(std::string rxValue){
+    if (rxValue.length() > 0) {
+      //debugRxValue(rxValue);   
+      serial_state = rxValue[0]; // state is askii!
+      if(serial_state > 53 && serial_state <= 56){ // power setting switch
+        switch (serial_state) {
+          case 54:  Serial.println("serial_state Low");   Pwr = Low;  break;
+          case 55:  Serial.println("serial_state Med");   Pwr = Med;  break;
+          case 56:  Serial.println("serial_state High");  Pwr = High; break;
+          default:  Serial.println("serial_state High");  Pwr = High;       }
+      } else if(serial_state > 48 && serial_state <= 53){ // motor direction switch
+        switch (serial_state) {
+          case 49:  Serial.println("serial_state Forward");  state = 0;  break;
+          case 50:  Serial.println("serial_state Back");     state = 1;  break;
+          case 51:  Serial.println("serial_state Left");     state = 2;  break;
+          case 52:  Serial.println("serial_state Right");    state = 3;  break;
+          case 53:  Serial.println("serial_state STOPED");   state = 4;  break;
+          default:  state = 4;        }
+      }
+      motor_controller.drive(state, Pwr);
   }
+}
+
+//***************
+// BLUETOOTH 
+//***************
+
+// See the following for generating UUIDs:
+// https://www.uuidgenerator.net/
+
+#define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+
+
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      deviceConnected = true;
+    };
+
+    void onDisconnect(BLEServer* pServer) {
+      deviceConnected = false;
+    }
 };
+
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      std::string rxValue = pCharacteristic->getValue();
+      processRxValue(rxValue);
+    }
+};
+
 
 void setup() {
   Serial.begin(115200);
-  pinMode(LED, OUTPUT);
+
   // Create the BLE Device
-  BLEDevice::init("ESP32 UART Test"); // Give it a name
+  BLEDevice::init("MyESP32");
+
   // Create the BLE Server
-  BLEServer * pServer = BLEDevice::createServer();
-  pServer -> setCallbacks(new MyServerCallbacks());
+  pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+
   // Create the BLE Service
-  BLEService * pService = pServer -> createService(SERVICE_UUID);
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+
   // Create a BLE Characteristic
-  pCharacteristic = pService -> createCharacteristic(
-    CHARACTERISTIC_UUID_TX,
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
-  pCharacteristic -> addDescriptor(new BLE2902());
-  BLECharacteristic * pCharacteristic = pService -> createCharacteristic(
-    CHARACTERISTIC_UUID_RX,
-    BLECharacteristic::PROPERTY_WRITE
-  );
-  pCharacteristic -> setCallbacks(new MyCallbacks());
+  pCharacteristic = pService->createCharacteristic(
+                      CHARACTERISTIC_UUID,
+                      BLECharacteristic::PROPERTY_READ   |
+                      BLECharacteristic::PROPERTY_WRITE  |
+                      BLECharacteristic::PROPERTY_NOTIFY |
+                      BLECharacteristic::PROPERTY_INDICATE
+                    );
+
+  pCharacteristic->setCallbacks(new MyCallbacks());
+
+  // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
+  // Create a BLE Descriptor
+  pCharacteristic->addDescriptor(new BLE2902());
+
   // Start the service
-  pService -> start();
+  pService->start();
+
   // Start advertising
-  pServer -> getAdvertising() -> start();
+  pServer->getAdvertising()->start();
   Serial.println("Waiting a client connection to notify...");
 }
 
 void loop() {
-  if (deviceConnected) {
-    // Fabricate some arbitrary junk for now...
-    txValue = analogRead(readPin) / 3.456; 
-    // This could be an actual sensor reading!
-    // Let's convert the value to a char array:
-    char txString[8]; // make sure this is big enuffz
-    dtostrf(txValue, 1, 2, txString); 
-    // float_val, min_width, digits_after_decimal, char_buffer
-    //    pCharacteristic->setValue(&txValue, 1); // To send the integer value
-    //    pCharacteristic->setValue("Hello!"); // Sending a test message
-    pCharacteristic -> setValue(txString);
-
-    pCharacteristic -> notify(); 
-    /*Send the value to the app!
-    Serial.print("*** Sent Value: ");
-    Serial.print(txString);
-    Serial.println(" ***");
-    You can add the rxValue checks down here instead
-    if you set "rxValue" as a global var at the top!
-    Note you will have to delete "std::string" declaration
-    of "rxValue" in the callback function.
-    if (rxValue.find("A") != -1) { 
-    Serial.println("Turning ON!");
-    digitalWrite(LED, HIGH);
+    // notify changed value
+    if (deviceConnected) {
+        //pCharacteristic->setValue(&value, 1);
+        //pCharacteristic->notify();
+       // value++;
+       // delay(10); // bluetooth stack will go into congestion, if too many packets are sent
     }
-    else if (rxValue.find("B") != -1) {
-    Serial.println("Turning OFF!");
-    digitalWrite(LED, LOW);
-    }*/
-  }
-  delay(1000);
+    // disconnecting
+    if (!deviceConnected && oldDeviceConnected) {
+        delay(500); // give the bluetooth stack the chance to get things ready
+        pServer->startAdvertising(); // restart advertising
+        Serial.println("start advertising");
+        oldDeviceConnected = deviceConnected;
+    }
+    // connecting
+    if (deviceConnected && !oldDeviceConnected) {
+        // do stuff here on connecting
+        oldDeviceConnected = deviceConnected;
+    }
 }
+

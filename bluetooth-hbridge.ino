@@ -35,6 +35,9 @@ const int LED = 2;
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 int Pwr = 3;
+const int Low = 127;
+const int Med = 191;
+const int High = 255;
 
 class HBridgeMaderController {
   private:
@@ -52,9 +55,6 @@ class HBridgeMaderController {
       {0, 0, 0, 0},    // Standby =2
     };
     int pinCount = 4; // Pins uses in array
-    const int Low = 127;
-    const int Med = 191;
-    const int High = 255;
    
   public:
     HBridgeMaderController() {
@@ -71,7 +71,7 @@ class HBridgeMaderController {
         {
             if (this->direction[x][i] == 1)
             {
-                ledcWrite(i, this->power_settings[drive_pwr]);
+                ledcWrite(i, drive_pwr);
             }
             else
             {

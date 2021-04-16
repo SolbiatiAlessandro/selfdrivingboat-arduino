@@ -8,3 +8,9 @@ The code loaded on ESP32 is in ./src
 - h-bridge
 - sensors
 - android phone (bluetooth)
+
+to compile the project
+```
+cd main
+arduino-cli compile main.ino --fqbn "esp32:esp32:esp32thing"
+```

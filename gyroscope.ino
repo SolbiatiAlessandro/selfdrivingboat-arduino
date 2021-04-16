@@ -86,10 +86,18 @@ void setup(void) {
 }
 
 float anglex = 0;
-long current = millis();
+float angley = 0;
+long current_time = millis();
+long old_time = 0;
 
 int print_r = 50;
 int print_c = 1;
+float max_values[6] = {0, 0, 0, 0, 0, 0};
+int _low_sens_gyro_x;
+float low_sens_gyro_x;
+int _low_sens_gyro_y;
+float low_sens_gyro_y;
+
 void loop() {
   
 
@@ -97,47 +105,46 @@ void loop() {
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
-  /*
+  max_values[0] = max(max_values[0], a.acceleration.x);
+  max_values[1] = max(max_values[1], a.acceleration.y);
+  max_values[2] = max(max_values[2], a.acceleration.z);
+  max_values[3] = max(max_values[3], g.gyro.x);
+  max_values[4] = max(max_values[4], g.gyro.y);
+  max_values[5] = max(max_values[5], g.gyro.z);
+  
+  _low_sens_gyro_x = g.gyro.x * 10;
+  low_sens_gyro_x = (float) _low_sens_gyro_x/10;
+  _low_sens_gyro_y = g.gyro.y * 10;
+  low_sens_gyro_y = (float) _low_sens_gyro_y/10;
 
-  Serial.print("Acceleration X: ");
-  Serial.print(a.acceleration.x);
-  Serial.print(", Y: ");
-  Serial.print(a.acceleration.y);
-  Serial.print(", Z: ");
-  Serial.print(a.acceleration.z);
-  Serial.println(" m/s^2");
-
-  
-  Serial.print(", Y: ");
-  Serial.print(g.gyro.y);
-  Serial.print(", Z: ");
-  Serial.print(g.gyro.z);
-  Serial.println(" rad/s");
-  // 0.02
-  // 0.0
-  */
-  
-  
-  int temp2 = g.gyro.x * 10;
-  float temp3 = (float) temp2/10;
-  anglex = anglex + (temp3 * (millis() - current) / 1000);
-  current = millis();
-  
-/*
-  Serial.print("Temperature: ");
-  Serial.print(temp.temperature);
-  Serial.println(" degC");
-  */
+  old_time = current_time;
+  current_time = millis();
+  anglex = anglex + (low_sens_gyro_x * (current_time - old_time) / 1000);
+  angley = angley + (low_sens_gyro_y * (current_time - old_time) / 1000);
   
 
   if (print_c % print_r == 0) {
-    Serial.print("Angle X: ");
-    Serial.println(anglex);
+    Serial.printf("%f %f %f %f %f %f %f %f %f", 
+    max_values[0],
+    max_values[1],
+    max_values[2],
+    max_values[3],
+    max_values[4],
+    max_values[5],
+    anglex,
+    angley,
+    temp.temperature
+    );
+    Serial.println("");
 
-    Serial.print("Rotation X: ");
-    Serial.println(g.gyro.x);
+    max_values[0] = 0;
+    max_values[1] = 0;
+    max_values[2] = 0;
+    max_values[3] = 0;
+    max_values[4] = 0;
+    max_values[5] = 0;
   }
   print_c = print_c + 1;
 
   delay(5);
-
+}

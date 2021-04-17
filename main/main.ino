@@ -184,9 +184,9 @@ void setup() {
 }
 
 long step_boat = 0;
-int step_MPU6050 = 10;
-int step_MPU6050_data = 1000;
-float MPU6050_data[9];
+int step_MPU6050 = 100;
+int step_data = 10000;
+float data[9];
 
 void loop() {
     
@@ -205,25 +205,27 @@ void loop() {
     if (step_boat % step_MPU6050 == 0){
       boat_MPU6050.step();
     }
-  	if (step_boat % step_MPU6050_data == 0){
-      if (deviceConnected) {  
-        boat_MPU6050.data(MPU6050_data);
-        Serial.println("sending bluetooth data..");
-        int i = 0;
-        Serial.println(MPU6050_data[i]);
-        pCharacteristic->setValue(MPU6050_data[i]);
-        pCharacteristic->notify();
-        delay(50);
-
-        /*
-        for (int i=0; i<9; i++){
-          Serial.println(MPU6050_data[i]);
-          pCharacteristic->setValue(MPU6050_data[i]);
-          pCharacteristic->notify();
-          delay(50);
-        }  
-        */
-      } 
+  	if (step_boat % step_data == 0 && deviceConnected){
+		boat_MPU6050.data(data);
+		Serial.println("sending bluetooth data..");
+		/*
+		Current bluetooth notify protocol send the following little-endian floats
+		accelleration-x
+		accelleration-y
+		accelleration-z
+		gyro-x
+		gyro-y
+		gyro-z
+		angle-x
+		angle-y
+		temperature
+		*/
+		for (int i=0; i<9; i++){
+		  Serial.println(data[i]);
+		  pCharacteristic->setValue(data[i]);
+		  pCharacteristic->notify();
+		  delay(50);
+		}  
   	}
   	step_boat += 1;
     if (step_boat == 100000){

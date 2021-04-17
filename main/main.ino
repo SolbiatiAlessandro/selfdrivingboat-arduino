@@ -235,7 +235,9 @@ void loop() {
     splitted_battery_value = analogRead(battery_pin);
     // 0.18 * dc power the real voltaage
     // actual 0.15
-    real_battery_value = splitted_battery_value/0.167;
+    Serial.println(splitted_battery_value);
+    real_battery_value = splitted_battery_value / 0.1670;
+    real_battery_value = real_battery_value / 1000;
     Serial.println(real_battery_value);
     pCharacteristic->setValue(real_battery_value);
     pCharacteristic->notify();

@@ -188,6 +188,10 @@ int step_MPU6050 = 100;
 int step_data = 10000;
 float data[9];
 
+int battery_pin = 15;
+float splitted_battery_value;
+float real_battery_value;
+
 void loop() {
     
     // disconnecting
@@ -219,6 +223,7 @@ void loop() {
 		angle-x
 		angle-y
 		temperature
+    battery level
 		*/
 		for (int i=0; i<9; i++){
 		  Serial.println(data[i]);
@@ -226,6 +231,15 @@ void loop() {
 		  pCharacteristic->notify();
 		  delay(50);
 		}  
+
+    splitted_battery_value = analogRead(battery_pin);
+    // 0.18 * dc power the real voltaage
+    // actual 0.15
+    real_battery_value = splitted_battery_value/0.167;
+    Serial.println(real_battery_value);
+    pCharacteristic->setValue(real_battery_value);
+    pCharacteristic->notify();
+    delay(50);
   	}
   	step_boat += 1;
     if (step_boat == 100000){

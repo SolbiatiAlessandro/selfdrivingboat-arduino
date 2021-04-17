@@ -39,7 +39,7 @@ class Boat_MPU6050
     Boat_MPU6050();
     void begin();
     void step();
-    int *data(int data_array[9]);
+    float *data(float data_array[9]);
 
   private:
   	Adafruit_MPU6050 mpu;

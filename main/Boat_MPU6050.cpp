@@ -139,7 +139,7 @@ void Boat_MPU6050::step()
 }
 
 // return sensor data, e.g. called every 100ms
-int *Boat_MPU6050::data(int data_array[9])
+float *Boat_MPU6050::data(float data_array[9])
 {
   data_array[0] = max_values[0];
   data_array[1] = max_values[1];

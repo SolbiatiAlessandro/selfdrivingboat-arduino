@@ -186,16 +186,10 @@ void setup() {
 long step_boat = 0;
 int step_MPU6050 = 10;
 int step_MPU6050_data = 1000;
-int MPU6050_data[9];
+float MPU6050_data[9];
 
 void loop() {
-    // notify changed value
-    if (deviceConnected) {
-        //pCharacteristic->setValue(&value, 1);
-        //pCharacteristic->notify();
-       // value++;
-       // delay(10); // bluetooth stack will go into congestion, if too many packets are sent
-    }
+    
     // disconnecting
     if (!deviceConnected && oldDeviceConnected) {
         delay(500); // give the bluetooth stack the chance to get things ready
@@ -212,10 +206,24 @@ void loop() {
       boat_MPU6050.step();
     }
   	if (step_boat % step_MPU6050_data == 0){
-  		boat_MPU6050.data(MPU6050_data);
-  		Serial.printf("%f", MPU6050_data[3]);
-      Serial.print(" ");
-  		Serial.println(step_boat);
+      if (deviceConnected) {  
+        boat_MPU6050.data(MPU6050_data);
+        Serial.println("sending bluetooth data..");
+        int i = 0;
+        Serial.println(MPU6050_data[i]);
+        pCharacteristic->setValue(MPU6050_data[i]);
+        pCharacteristic->notify();
+        delay(50);
+
+        /*
+        for (int i=0; i<9; i++){
+          Serial.println(MPU6050_data[i]);
+          pCharacteristic->setValue(MPU6050_data[i]);
+          pCharacteristic->notify();
+          delay(50);
+        }  
+        */
+      } 
   	}
   	step_boat += 1;
     if (step_boat == 100000){

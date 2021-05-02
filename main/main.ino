@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include "Boat_MPU6050.h"
 
 Boat_MPU6050 boat_MPU6050;
@@ -6,7 +7,7 @@ Boat_MPU6050 boat_MPU6050;
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
- #include <Arduino.h>
+ 
 
 BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic = NULL;
@@ -32,11 +33,11 @@ class HBridgeMaderController {
       27  // motor 2 pin B
     };
     int direction[5][4] = {
-      {1, 0, 1, 0},    // Forward =0
-      {0, 1, 0, 1},    // Backwords =1
+      {1, 1, 1, 0},    // Forward =0
+      {1, 0, 1, 1},    // Backwords =1
       {1, 0, 0, 0},    // turn left =3
       {0, 0, 1, 0},    // Turn right = 4
-      {0, 0, 0, 0},    // Standby =2
+      {1, 0, 1, 0},    // Standby =2
     };
     int pinCount = 4; // Pins uses in array
    
@@ -113,7 +114,7 @@ void processRxValue(std::string rxValue){
           case 53:  Serial.println("serial_state STOPED");   state = 4;  break;
           default:  state = 4;        }
       }
-      motor_controller.drive(state, Pwr);
+      motor_controller.drive(state, High);
   }
 }
 
@@ -145,9 +146,10 @@ class MyCallbacks: public BLECharacteristicCallbacks {
     }
 };
 
-
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
+  Serial.println("test");
+
   boat_MPU6050.begin();
 
   // Create the BLE Device
@@ -192,8 +194,9 @@ int battery_pin = 15;
 float splitted_battery_value;
 float real_battery_value;
 
+
 void loop() {
-    
+
     // disconnecting
     if (!deviceConnected && oldDeviceConnected) {
         delay(500); // give the bluetooth stack the chance to get things ready
@@ -212,7 +215,7 @@ void loop() {
   	if (step_boat % step_data == 0 && deviceConnected){
 		boat_MPU6050.data(data);
 		Serial.println("sending bluetooth data..");
-		/*
+    /*
 		Current bluetooth notify protocol send the following little-endian floats
 		accelleration-x
 		accelleration-y
@@ -224,7 +227,7 @@ void loop() {
 		angle-y
 		temperature
     battery level
-		*/
+    */
 		for (int i=0; i<9; i++){
 		  Serial.println(data[i]);
 		  pCharacteristic->setValue(data[i]);

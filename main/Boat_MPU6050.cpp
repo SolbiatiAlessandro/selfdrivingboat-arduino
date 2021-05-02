@@ -36,17 +36,13 @@ Boat_MPU6050::Boat_MPU6050(void){}
 
 void Boat_MPU6050::begin(void)
 {
-  Serial.begin(115200);
-  while (!Serial)
-    delay(10); // will pause Zero, Leonardo, etc until serial console opens
 
   Serial.println("Adafruit MPU6050 test!");
   // Try to initialize!
   if (!mpu.begin()) {
     Serial.println("Failed to find MPU6050 chip");
-    while (1) {
-      delay(10);
-    }
+    active = false;
+    return;
   }
   Serial.println("MPU6050 Found!");
 
@@ -115,6 +111,9 @@ void Boat_MPU6050::begin(void)
 // e.g. called every 10ms
 void Boat_MPU6050::step()
 {
+  if (!active) {
+    return;
+  }
   /* Get new sensor events with the readings */
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
@@ -125,7 +124,7 @@ void Boat_MPU6050::step()
   max_values[3] = max(max_values[3], g.gyro.x);
   max_values[4] = max(max_values[4], g.gyro.y);
   max_values[5] = max(max_values[5], g.gyro.z);
-  
+
   _low_sens_gyro_x = g.gyro.x * 10;
   low_sens_gyro_x = (float) _low_sens_gyro_x/10;
   _low_sens_gyro_y = g.gyro.y * 10;
@@ -143,7 +142,7 @@ float *Boat_MPU6050::data(float data_array[9])
 {
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
-  
+
   data_array[0] = max_values[0];
   data_array[1] = max_values[1];
   data_array[2] = max_values[2];

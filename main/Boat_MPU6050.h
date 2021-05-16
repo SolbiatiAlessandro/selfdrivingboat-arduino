@@ -43,6 +43,7 @@ class Boat_MPU6050
 
   private:
   	Adafruit_MPU6050 mpu;
+    boolean active = true;
   
   	float anglex = 0;
   	float angley = 0;

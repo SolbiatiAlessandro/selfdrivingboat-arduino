@@ -134,6 +134,8 @@ void setup() {
   Serial.begin(9600);
   Serial.println("test");
 
+  pinMode(27, OUTPUT);
+
   boat_MPU6050.begin();
 
   // Create the BLE Device

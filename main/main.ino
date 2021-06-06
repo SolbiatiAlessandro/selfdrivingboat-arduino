@@ -7,6 +7,7 @@ Boat_MPU6050 boat_MPU6050;
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include "ESP32Servo.h"k
  
 
 BLEServer* pServer = NULL;
@@ -16,57 +17,40 @@ bool oldDeviceConnected = false;
 uint8_t value = 0;
 
 //**************
-// HBRIDGE LOGIC
+// ESC LOGIC
 //**************
 
-int Pwr = 3;
-const int Low = 127;
-const int Med = 191;
-const int High = 255;
-
-class HBridgeMaderController {
+class ESCMaderController {
   private:
-    int pinArray[4] = { // The pins used as output
-      13, // motor 1 pin A
-      12, // motor 1 pin B
-      14, // motor 2 pin A
-      27  // motor 2 pin B
+    byte pinArray[2] = { // The pins used as output
+      12, // motor 1 
+      13, // motor 2 
     };
-    int direction[5][4] = {
-      {1, 1, 1, 0},    // Forward =0
-      {1, 0, 1, 1},    // Backwords =1
-      {1, 0, 0, 0},    // turn left =3
-      {0, 0, 1, 0},    // Turn right = 4
-      {1, 0, 1, 0},    // Standby =2
-    };
-    int pinCount = 4; // Pins uses in array
+    int pinCount = 2; // Pins uses in array
+	Servo rightThruster;
+    Servo leftThruster;
    
   public:
-    HBridgeMaderController() {
-      for (int count = 0; count <= pinCount; count++)
-      {
-          ledcSetup(count, 5000, 8);
-          ledcAttachPin(this->pinArray[count], count);
-          ledcWrite(this->pinArray[count], 0);
-      }
+    ESCMaderController() {
+		delay(3000);
+        rightThruster.attach(pinArray[0]);
+        leftThruster.attach(pinArray[1]);
+        rightThruster.writeMicroseconds(1500);
+        leftThruster.writeMicroseconds(1500);
+		delay(7000);
     }
 
-    void drive(int x, int drive_pwr) { //Driveing the pins off of the input of x.
-        for (int i = 0; i < this->pinCount; i++)
+    void drive(int right_power, int left_power, int drive_duration) { //Driveing the pins off of the input of x.
+        for (int i = 0; i < drive_duration * 100; i++)
         {
-            if (this->direction[x][i] == 1)
-            {
-                ledcWrite(i, drive_pwr);
-            }
-            else
-            {
-                ledcWrite(i, 0);
-            }
-        }
-    }
+			rightThruster.writeMicroseconds(right_powerj);
+			leftThruster.writeMicroseconds(left_power);
+			delay(10);
+		}
+	}
 };
 
-HBridgeMaderController motor_controller;
+ESCMaderController motor_controller;
 
 int serial_state = 53;
 int state = 2;
@@ -107,15 +91,15 @@ void processRxValue(std::string rxValue){
           default:  Serial.println("serial_state High");  Pwr = High;       }
       } else if(serial_state > 48 && serial_state <= 53){ // motor direction switch
         switch (serial_state) {
-          case 49:  Serial.println("serial_state Forward");  state = 0;  break;
-          case 50:  Serial.println("serial_state Back");     state = 1;  break;
-          case 51:  Serial.println("serial_state Left");     state = 2;  break;
-          case 52:  Serial.println("serial_state Right");    state = 3;  break;
-          case 53:  Serial.println("serial_state STOPED");   state = 4;  break;
+          case 49:  motor_controller.drive(1800, 1800, 10); break;
+          case 50:  motor_controller.drive(1200, 1200, 10); break;
+          case 51:  motor_controller.drive(1500, 1800, 5); break;
+          case 52:  motor_controller.drive(1800, 1500, 5); break;
+          case 53:  motor_controller.drive(1500, 1500, 5); break;
           default:  state = 4;        }
       }
-      motor_controller.drive(state, High);
   }
+      
 }
 
 //***************

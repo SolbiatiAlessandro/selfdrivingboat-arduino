@@ -7,7 +7,7 @@ Boat_MPU6050 boat_MPU6050;
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
-#include "ESP32Servo.h"k
+#include "ESP32Servo.h"
  
 
 BLEServer* pServer = NULL;
@@ -41,12 +41,16 @@ class ESCMaderController {
     }
 
     void drive(int right_power, int left_power, int drive_duration) { //Driveing the pins off of the input of x.
+      Serial.println("driving thrusters start");
+      Serial.println(right_power);
+      Serial.println(left_power);
         for (int i = 0; i < drive_duration * 100; i++)
         {
-			rightThruster.writeMicroseconds(right_powerj);
+			rightThruster.writeMicroseconds(right_power);
 			leftThruster.writeMicroseconds(left_power);
 			delay(10);
 		}
+		Serial.println("driving thrusters finish");
 	}
 };
 
@@ -81,25 +85,17 @@ void debugRxValue(std::string rxValue){
 
 void processRxValue(std::string rxValue){
     if (rxValue.length() > 0) {
-      //debugRxValue(rxValue);   
+      debugRxValue(rxValue);   
       serial_state = rxValue[0]; // state is askii!
-      if(serial_state > 53 && serial_state <= 56){ // power setting switch
-        switch (serial_state) {
-          case 54:  Serial.println("serial_state Low");   Pwr = Low;  break;
-          case 55:  Serial.println("serial_state Med");   Pwr = Med;  break;
-          case 56:  Serial.println("serial_state High");  Pwr = High; break;
-          default:  Serial.println("serial_state High");  Pwr = High;       }
-      } else if(serial_state > 48 && serial_state <= 53){ // motor direction switch
         switch (serial_state) {
           case 49:  motor_controller.drive(1800, 1800, 10); break;
           case 50:  motor_controller.drive(1200, 1200, 10); break;
           case 51:  motor_controller.drive(1500, 1800, 5); break;
           case 52:  motor_controller.drive(1800, 1500, 5); break;
           case 53:  motor_controller.drive(1500, 1500, 5); break;
-          default:  state = 4;        }
-      }
-  }
-      
+          default:  state = 4;        
+          }
+     }
 }
 
 //***************
